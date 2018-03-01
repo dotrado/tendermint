@@ -9,7 +9,7 @@ jobs:
       - checkout
       - run:
           name: Glob tests
-          command: circleci tests glob $(go list github.com/tendermint/tendermint/... | grep -v /vendor/) | circleci tests split
+          command: go list github.com/tendermint/tendermint/... | grep -v /vendor/ | circleci tests split
       - run:
           name: Get tools
           environment:

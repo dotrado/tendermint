@@ -7,6 +7,9 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Glob tests
+          command: circleci tests glob "**/*.go" | circleci tests split
+      - run:
           name: Get tools
           environment:
             GOBIN: /go/bin
@@ -23,6 +26,3 @@ jobs:
       - run:
           name: Upload test coverage
           command: bash <(curl -s https://codecov.io/bash) -f coverage.txt
-      - run:
-          name: Glob tests
-          command: circleci tests glob "**/*.go" | circleci tests split

@@ -6,7 +6,6 @@ jobs:
     working_directory: /go/src/github.com/tendermint/tendermint
     steps:
       - checkout
-      - run: env
       - run:
           name: Get tools
           environment:
@@ -20,4 +19,7 @@ jobs:
       - run:
           name: Run tests
           command: |
-            make test_race
+            bash test/test_cover.sh
+      - run:
+          name: Upload test coverage
+          command: bash <(curl -s https://codecov.io/bash) -f coverage.txt

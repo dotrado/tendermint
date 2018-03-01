@@ -3,12 +3,13 @@ jobs:
   build:
     docker:
       - image: circleci/golang:1.10
+    parallelism: 9
     working_directory: /go/src/github.com/tendermint/tendermint
     steps:
       - checkout
       - run:
           name: Glob tests
-          command: circleci tests glob "**/*.go" | circleci tests split
+          command: circleci tests glob $(go list github.com/tendermint/tendermint/... | grep -v /vendor/) | circleci tests split
       - run:
           name: Get tools
           environment:

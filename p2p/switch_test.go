@@ -248,6 +248,7 @@ func TestSwitchStopsNonPersistentPeerOnError(t *testing.T) {
 	require.Nil(err)
 
 	peer := sw.Peers().Get(rp.ID())
+	require.NotNil(peer)
 
 	// simulate failure by closing connection
 	pc.CloseConn()
@@ -278,6 +279,7 @@ func TestSwitchReconnectsToPersistentPeer(t *testing.T) {
 	require.Nil(err)
 
 	peer := sw.Peers().Get(rp.ID())
+	require.NotNil(peer)
 
 	// simulate failure by closing connection
 	pc.CloseConn()

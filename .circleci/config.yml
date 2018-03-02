@@ -40,7 +40,7 @@ jobs:
               go test -timeout 5m -race -coverprofile=profile_$id.out -covermode=atomic "$pkg"
             done
       - save_cache:
-          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          key: v1-test-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - /go/src/github.com/tendermint/tendermint
 
@@ -50,10 +50,12 @@ jobs:
       - image: circleci/golang:1.10
     steps:
       - restore_cache:
-          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          key: v1-test-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Combine profiles
           command: |
+            set -ex
+
             echo "mode: atomic" > coverage.txt
             for prof in $(ls | grep profile); do
               tail -n +2 "$prof" >> coverage.txt

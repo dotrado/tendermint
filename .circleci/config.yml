@@ -7,7 +7,7 @@ defaults: &defaults
   environment:
     GOBIN: /go/src/github.com/tendermint/tendermint/.bin
   steps:
-    run: echo "export /go/src/github.com/tendermint/tendermint/.bin:$PATH" >> $BASH_ENV
+    - run: echo "export /go/src/github.com/tendermint/tendermint/.bin:$PATH" >> $BASH_ENV
 
   
 jobs:

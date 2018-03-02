@@ -41,6 +41,7 @@ jobs:
           root: /tmp/workspace
           paths:
             - bin
+            - profiles
       - save_cache:
           key: v1-pkg-cache
           paths:
@@ -79,6 +80,7 @@ jobs:
           root: /tmp/workspace
           paths:
             - bin
+            - profiles
 
   lint:
     <<: *defaults
@@ -114,6 +116,7 @@ jobs:
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
+            - bin
             - profiles
 
   test_app:

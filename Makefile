@@ -105,7 +105,7 @@ fmt:
 
 metalinter:
 	@echo "--> Running linter"
-	gometalinter.v2 --vendor --deadline=600s --disable-all  \
+	@$(GOBIN)/gometalinter.v2 --vendor --deadline=600s --disable-all  \
 		--enable=deadcode \
 		--enable=gosimple \
 	 	--enable=misspell \

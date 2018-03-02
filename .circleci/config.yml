@@ -6,7 +6,6 @@ defaults: &defaults
     - image: circleci/golang:1.10
   environment:
     GOBIN: /go/src/github.com/tendermint/tendermint/.bin
-    PATH: "/go/src/github.com/tendermint/tendermint/.bin:$PATH"
   
 jobs:
   setup_dependencies:

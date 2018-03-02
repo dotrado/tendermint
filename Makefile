@@ -40,7 +40,7 @@ check_tools:
 get_tools:
 	@echo "--> Installing tools"
 	go get -u -v $(GOTOOLS)
-	@gometalinter.v2 --install
+	@$(GOBIN)/gometalinter.v2 --install
 
 update_tools:
 	@echo "--> Updating tools"

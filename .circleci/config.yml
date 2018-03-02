@@ -59,9 +59,10 @@ jobs:
       - restore_cache:
           key: v1-tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
-          name: metalinter
+          working_directory: /go/src/github.com/tendermint/tendermint/vendor/github.com/tendermint/abci
+          name: Install abci
           command: |
-            cd vendor/github.com/tendermint/abci
+            ls -lah
             make get_tools
             make get_vendor_deps
             make install

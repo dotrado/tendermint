@@ -40,8 +40,7 @@ jobs:
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - bin
-            - profiles
+            - "bin/gometaliner.v2"
       - save_cache:
           key: v1-pkg-cache
           paths:
@@ -76,11 +75,11 @@ jobs:
             make get_tools
             make get_vendor_deps
             make install
+      - run: ls -lah /tmp/workspace/bin
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - bin
-            - profiles
+            - "bin/abci*"
 
   lint:
     <<: *defaults
@@ -116,8 +115,7 @@ jobs:
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - bin
-            - profiles
+            - "profiles/*"
 
   test_app:
     <<: *defaults

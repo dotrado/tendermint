@@ -129,6 +129,7 @@ jobs:
       - restore_cache:
           key: v1-tree-{{ .Environment.CIRCLE_SHA1 }}
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends bsdmainutils
+      - run: ls -lah /tmp/workspace/bin
       - run:
           name: tests
           command: bash test/app/test.sh

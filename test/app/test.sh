@@ -9,7 +9,7 @@ set -e
 # TODO: install everything
 
 export TMHOME=$HOME/.tendermint_app
-export tendermint="$GOBIN/tendermint"
+export tendermint=$GOBIN/tendermint
 
 function kvstore_over_socket(){
     rm -rf $TMHOME

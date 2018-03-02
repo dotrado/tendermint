@@ -49,6 +49,24 @@ jobs:
           paths:
             - .keep
 
+  setup_abci:
+    <<: *defaults
+    steps:
+      - restore_cache:
+      - restore_cache:
+          key: v1-bin-cache
+      - restore_cache:
+          key: v1-pkg-cache
+      - restore_cache:
+          key: v1-tree-{{ .Environment.CIRCLE_SHA1 }}
+      - run:
+          name: metalinter
+          command: |
+            cd vendor/github.com/tendermint/abci
+            make get_tools
+            make get_vendor_deps
+            make install
+
   lint:
     <<: *defaults
     steps:
@@ -125,6 +143,9 @@ workflows:
     jobs:
       - setup_dependencies
       - setup_profile_workspace
+      - setup_abci:
+          requires:
+            - setup_dependencies
       - lint:
           requires:
             - setup_dependencies
@@ -134,7 +155,7 @@ workflows:
             - setup_profile_workspace
       - test_app:
           requires:
-            - setup_dependencies
+            - setup_abci
       - upload_coverage:
           requires:
             - test_cover

@@ -12,6 +12,7 @@ jobs:
   setup_dependencies:
     <<: *defaults
     steps:
+      - run: env
       - checkout
       - run: mkdir .bin
       - restore_cache:
@@ -19,7 +20,6 @@ jobs:
             - v1-bin-cache
             - v1-pkg-cache
       - run: ls -lah /go/src/github.com/tendermint/tendermint/.bin
-      - run: env
       - run:
           name: Get tools
           command: make get_tools

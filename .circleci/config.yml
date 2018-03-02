@@ -49,6 +49,8 @@ jobs:
           key: pkg-cache
       - restore_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
+      - run: env
+      - run: ls /go/bin
       - run: make metalinter
 
   test_cover:

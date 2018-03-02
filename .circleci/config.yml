@@ -29,7 +29,7 @@ jobs:
       - save_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
           paths:
-            - /go
+            - /go/src/github.com/tendermint/tendermint
 
 
   test:

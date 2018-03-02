@@ -91,7 +91,7 @@ jobs:
           key: v1-tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: tests
-          command: make test_integration
+          command: make test_integrations
 
   upload_coverage:
     <<: *defaults

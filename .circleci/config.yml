@@ -61,13 +61,14 @@ jobs:
       - run:
           name: Checkout abci
           command: |
+            commit=$(bash scripts/dep_utils/parse.sh abci)
             go get -v -u -d github.com/tendermint/abci/...
+            cd /go/src/github.com/tendermint/abci
+            git checkout "$commit"
       - run:
           working_directory: /go/src/github.com/tendermint/abci
           name: Install abci
           command: |
-            commit=$(bash scripts/dep_utils/parse.sh abci)
-            git checkout "$commit"
             make get_tools
             make get_vendor_deps
             make install

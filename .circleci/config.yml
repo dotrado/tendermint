@@ -70,6 +70,7 @@ jobs:
           working_directory: /go/src/github.com/tendermint/abci
           name: Install abci
           command: |
+            set -ex
             export PATH="$GOBIN:$PATH"
             make get_tools
             make get_vendor_deps

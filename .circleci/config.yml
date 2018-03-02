@@ -74,4 +74,4 @@ workflows:
             - setup
       - upload_coverage:
           requires:
-            - test
+            - go_test

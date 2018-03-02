@@ -44,7 +44,7 @@ jobs:
           paths:
             - /go/src/github.com/tendermint/tendermint
 
-  cover:
+  upload_coverage:
     working_directory: /go/src/github.com/tendermint/tendermint
     parallelism: 4
     docker:
@@ -72,6 +72,6 @@ workflows:
       - go_test:
           requires:
             - setup
-      - cover:
+      - upload_coverage:
           requires:
             - test

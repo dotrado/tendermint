@@ -154,7 +154,7 @@ workflows:
   test-cover:
     jobs:
       - setup_workspace
-      - setup_dependencies
+      - setup_dependencies:
           requires:
             - setup_workspace
       - setup_abci:

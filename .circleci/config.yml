@@ -11,7 +11,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          keys: 
+          keys:
             - pkg-cache
       - run:
           name: Get tools
@@ -49,9 +49,9 @@ jobs:
       - attach_workspace:
           at: profiles
       - restore_cache:
-          keys:
-            - pkg-cache
-            - tree-{{ .Environment.CIRCLE_SHA1 }}
+          key: pkg-cache
+      - restore_cache:
+          key: tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Run tests
           command: |

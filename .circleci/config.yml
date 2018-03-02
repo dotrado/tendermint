@@ -22,6 +22,7 @@ jobs:
             - v1-pkg-cache
       - run: ls -lah /go/src/github.com/tendermint/tendermint/.bin
       - run: env
+      - run: cat $BASH_ENV
       - run:
           name: Get tools
           command: make get_tools

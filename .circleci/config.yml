@@ -1,10 +1,13 @@
 version: 2
 
+defaults: &defaults
+  working_directory: /go/src/github.com/tendermint/tendermint
+  docker:
+    - image: circleci/golang:1.10
+  
 jobs:
   setup:
-    working_directory: /go/src/github.com/tendermint/tendermint
-    docker:
-      - image: circleci/golang:1.10
+    <<: *defaults
     steps:
       - checkout
       - run:
@@ -17,47 +20,54 @@ jobs:
           environment:
             GOBIN: /go/bin
           command: make get_vendor_deps
+      - run: mkdir -p profiles
+      - persist_to_workspace:
+          root: profiles
+          paths:
+            - /
       - save_cache:
-          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          key: repo-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - /go/src/github.com/tendermint/tendermint
 
 
-  go_test:
-    working_directory: /go/src/github.com/tendermint/tendermint
+  test:
+    <<: *defaults
     parallelism: 4
-    docker:
-      - image: circleci/golang:1.10
     steps:
+      - attach_workspace:
+          at: profiles
       - restore_cache:
-          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          key: repo-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Run tests
           command: |
             for pkg in $(go list github.com/tendermint/tendermint/... | grep -v /vendor/ | circleci tests split); do
               id=$(basename "$pkg")
 
-              go test -timeout 5m -race -coverprofile=profile_$id.out -covermode=atomic "$pkg"
+              go test -timeout 5m -race -coverprofile=profiles/$id.out -covermode=atomic "$pkg"
             done
+      - persist_to_workspace:
+          root: profiles
+          paths:
+            - *.out
       - save_cache:
-          key: v1-test-{{ .Environment.CIRCLE_SHA1 }}
+          key: repo-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - /go/src/github.com/tendermint/tendermint
 
-  upload_coverage:
-    working_directory: /go/src/github.com/tendermint/tendermint
-    docker:
-      - image: circleci/golang:1.10
+  coverage:
+    <<: *defaults
     steps:
-      - restore_cache:
-          key: v1-test-{{ .Environment.CIRCLE_SHA1 }}
+      - attach_workspace:
+          at: profiles
       - run:
           name: Combine profiles
           command: |
             set -ex
 
             echo "mode: atomic" > coverage.txt
-            for prof in $(ls | grep profile); do
+            for prof in $(ls profiles/); do
               tail -n +2 "$prof" >> coverage.txt
             done
       - run:
@@ -69,9 +79,9 @@ workflows:
   test-and-cover:
     jobs:
       - setup
-      - go_test:
+      - test:
           requires:
             - setup
-      - upload_coverage:
+      - coverage:
           requires:
-            - go_test
+            - test

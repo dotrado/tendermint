@@ -13,8 +13,8 @@ jobs:
       - run: mkdir .bin
       - restore_cache:
           keys:
-            - bin-cache
-            - pkg-cache
+            - v1- bin-cache
+            - v1- pkg-cache
       - run:
           name: Get tools
           environment:
@@ -26,11 +26,11 @@ jobs:
             GOBIN: .bin
           command: make get_vendor_deps
       - save_cache:
-          key: bin-cache
+          key: v1-bin-cache
           paths:
             - .bin
       - save_cache:
-          key: pkg-cache
+          key: v1-pkg-cache
           paths:
             - /go/pkg
       - save_cache:
@@ -53,9 +53,9 @@ jobs:
     <<: *defaults
     steps:
       - restore_cache:
-          key: bin-cache
+          key: v1-bin-cache
       - restore_cache:
-          key: pkg-cache
+          key: v1-pkg-cache
       - restore_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
       - run: env
@@ -73,7 +73,7 @@ jobs:
       - attach_workspace:
           at: profiles
       - restore_cache:
-          key: pkg-cache
+          key: v1-pkg-cache
       - restore_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:

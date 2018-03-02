@@ -50,7 +50,7 @@ jobs:
       - persist_to_workspace:
           root: profiles
           paths:
-            - *.out
+            - "*.out"
       - save_cache:
           key: repo-{{ .Environment.CIRCLE_SHA1 }}
           paths:

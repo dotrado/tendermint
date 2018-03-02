@@ -31,6 +31,7 @@ jobs:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - /go/src/github.com/tendermint/tendermint
+      - run: ls /go/bin
 
   setup_profile_workspace:
     <<: *defaults
@@ -105,7 +106,6 @@ workflows:
       - lint:
           requires:
             - setup_dependencies
-            - setup_profile_workspace
       - test_cover:
           requires:
             - setup_dependencies

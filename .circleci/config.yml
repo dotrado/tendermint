@@ -23,6 +23,9 @@ jobs:
       - run:
           name: dependencies
           command: make get_vendor_deps
+      - run:
+          name: binaries
+          command: make install
       - save_cache:
           key: v1-bin-cache
           paths:
@@ -82,17 +85,18 @@ jobs:
           paths:
             - "*.out"
 
-  test_integration:
+  test_app:
     <<: *defaults
     steps:
+      - restore_cache:
+          key: v1-bin-cache
       - restore_cache:
           key: v1-pkg-cache
       - restore_cache:
           key: v1-tree-{{ .Environment.CIRCLE_SHA1 }}
-      - setup_remote_docker
       - run:
           name: tests
-          command: make test_integrations
+          command: bash test/app/test.sh
 
   upload_coverage:
     <<: *defaults
@@ -127,7 +131,7 @@ workflows:
           requires:
             - setup_dependencies
             - setup_profile_workspace
-      - test_integration:
+      - test_app:
           requires:
             - setup_dependencies
       - upload_coverage:

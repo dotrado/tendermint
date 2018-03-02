@@ -84,7 +84,8 @@ workflows:
   version: 2
   test-cover:
     jobs:
-      - setup
+      - setup_dependencies
+      - setup_profile_workspace
       - test_cover:
           requires:
             - setup_dependencies

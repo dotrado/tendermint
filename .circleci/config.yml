@@ -24,10 +24,6 @@ jobs:
             GOBIN: /go/bin
           command: make get_vendor_deps
       - save_cache:
-          key: bin-cache
-          paths:
-            - /go/bin
-      - save_cache:
           key: pkg-cache
           paths:
             - /go/pkg
@@ -46,14 +42,21 @@ jobs:
           paths:
             - .keep
 
+  lint:
+    <<: *defaults
+    steps:
+      - restore_cache:
+          key: pkg-cache
+      - restore_cache:
+          key: tree-{{ .Environment.CIRCLE_SHA1 }}
+      - run: make metalinter
+
   test_cover:
     <<: *defaults
     parallelism: 4
     steps:
       - attach_workspace:
           at: profiles
-      - restore_cache:
-          key: bin-cache
       - restore_cache:
           key: pkg-cache
       - restore_cache:
@@ -97,6 +100,10 @@ workflows:
     jobs:
       - setup_dependencies
       - setup_profile_workspace
+      - lint:
+          requires:
+            - setup_dependencies
+            - setup_profile_workspace
       - test_cover:
           requires:
             - setup_dependencies

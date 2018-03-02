@@ -53,15 +53,14 @@ jobs:
       - restore_cache:
           key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
       - run:
-          name: Run tests
+          name: Combine profiles
           command: |
             echo "mode: atomic" > coverage.txt
             for prof in $(ls | grep profile); do
               tail -n +2 "$prof" >> coverage.txt
-              rm "$prof"
             done
       - run:
-          name: Upload test coverage
+          name: Upload coverage
           command: bash <(curl -s https://codecov.io/bash) -f coverage.txt
 
 workflows:

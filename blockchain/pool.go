@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -30,7 +31,14 @@ const (
 	maxTotalRequesters        = 1000
 	maxPendingRequests        = maxTotalRequesters
 	maxPendingRequestsPerPeer = 50
-	minRecvRate               = 10240 // 10Kb/s
+
+	// Minimum recv rate to ensure we're receiving blocks from a peer fast
+	// enough. If a peer is not sending us data at at least that rate, we
+	// consider them to have timedout and we disconnect.
+	//
+	// Assuming a DSL connection (not a good choice) 128 Kbps (upload) ~ 15 KB/s,
+	// sending data across atlantic ~ 7.5 KB/s.
+	minRecvRate = 7680
 )
 
 var peerTimeoutSeconds = time.Duration(15) // not const so we can override with tests
@@ -88,7 +96,6 @@ func (pool *BlockPool) OnStop() {}
 
 // Run spawns requesters as needed.
 func (pool *BlockPool) makeRequestersRoutine() {
-
 	for {
 		if !pool.IsRunning() {
 			break
@@ -119,10 +126,13 @@ func (pool *BlockPool) removeTimedoutPeers() {
 	for _, peer := range pool.peers {
 		if !peer.didTimeout && peer.numPending > 0 {
 			curRate := peer.recvMonitor.Status().CurRate
-			// XXX remove curRate != 0
+			// curRate can be 0 on start
 			if curRate != 0 && curRate < minRecvRate {
 				pool.sendTimeout(peer.id)
-				pool.Logger.Error("SendTimeout", "peer", peer.id, "reason", "curRate too low")
+				pool.Logger.Error("SendTimeout", "peer", peer.id,
+					"reason", "peer is not sending us data fast enough",
+					"curRate", fmt.Sprintf("%d KB/s", curRate/1024),
+					"minRate", fmt.Sprintf("%d KB/s", minRecvRate/1024))
 				peer.didTimeout = true
 			}
 		}
@@ -524,10 +534,10 @@ OUTER_LOOP:
 		// Send request and wait.
 		bpr.pool.sendRequest(bpr.height, peer.id)
 		select {
-		case <-bpr.pool.Quit:
+		case <-bpr.pool.Quit():
 			bpr.Stop()
 			return
-		case <-bpr.Quit:
+		case <-bpr.Quit():
 			return
 		case <-bpr.redoCh:
 			bpr.reset()
@@ -535,10 +545,10 @@ OUTER_LOOP:
 		case <-bpr.gotBlockCh:
 			// We got the block, now see if it's good.
 			select {
-			case <-bpr.pool.Quit:
+			case <-bpr.pool.Quit():
 				bpr.Stop()
 				return
-			case <-bpr.Quit:
+			case <-bpr.Quit():
 				return
 			case <-bpr.redoCh:
 				bpr.reset()

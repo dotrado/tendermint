@@ -20,9 +20,10 @@ var (
 
 	defaultConfigFileName  = "config.toml"
 	defaultGenesisJSONName = "genesis.json"
-	defaultPrivValName     = "priv_validator.json"
-	defaultNodeKeyName     = "node_key.json"
-	defaultAddrBookName    = "addrbook.json"
+
+	defaultPrivValName  = "priv_validator.json"
+	defaultNodeKeyName  = "node_key.json"
+	defaultAddrBookName = "addrbook.json"
 
 	defaultConfigFilePath  = filepath.Join(defaultConfigDir, defaultConfigFileName)
 	defaultGenesisJSONPath = filepath.Join(defaultConfigDir, defaultGenesisJSONName)
@@ -103,6 +104,9 @@ type BaseConfig struct {
 	// A custom human readable name for this node
 	Moniker string `mapstructure:"moniker"`
 
+	// TCP or UNIX socket address of the PrivValidator server
+	PrivValidatorAddr string `mapstructure:"priv_validator_addr"`
+
 	// TCP or UNIX socket address of the ABCI application,
 	// or the name of an ABCI application compiled in with the Tendermint binary
 	ProxyApp string `mapstructure:"proxy_app"`
@@ -158,7 +162,7 @@ func DefaultBaseConfig() BaseConfig {
 func TestBaseConfig() BaseConfig {
 	conf := DefaultBaseConfig()
 	conf.chainID = "tendermint_test"
-	conf.ProxyApp = "dummy"
+	conf.ProxyApp = "kvstore"
 	conf.FastSync = false
 	conf.DBBackend = "memdb"
 	return conf
@@ -189,9 +193,10 @@ func DefaultLogLevel() string {
 	return "error"
 }
 
-// DefaultPackageLogLevels returns a default log level setting so all packages log at "error", while the `state` package logs at "info"
+// DefaultPackageLogLevels returns a default log level setting so all packages
+// log at "error", while the `state` and `main` packages log at "info"
 func DefaultPackageLogLevels() string {
-	return fmt.Sprintf("state:info,*:%s", DefaultLogLevel())
+	return fmt.Sprintf("main:info,state:info,*:%s", DefaultLogLevel())
 }
 
 //-----------------------------------------------------------------------------
@@ -257,9 +262,6 @@ type P2PConfig struct {
 	// Set true for strict address routability rules
 	AddrBookStrict bool `mapstructure:"addr_book_strict"`
 
-	// Set true to enable the peer-exchange reactor
-	PexReactor bool `mapstructure:"pex"`
-
 	// Maximum number of peers to connect to
 	MaxNumPeers int `mapstructure:"max_num_peers"`
 
@@ -274,6 +276,18 @@ type P2PConfig struct {
 
 	// Rate at which packets can be received, in bytes/second
 	RecvRate int64 `mapstructure:"recv_rate"`
+
+	// Set true to enable the peer-exchange reactor
+	PexReactor bool `mapstructure:"pex"`
+
+	// Seed mode, in which node constantly crawls the network and looks for
+	// peers. If another node asks it for addresses, it responds and disconnects.
+	//
+	// Does not work if the peer-exchange reactor is disabled.
+	SeedMode bool `mapstructure:"seed_mode"`
+
+	// Authenticated encryption
+	AuthEnc bool `mapstructure:"auth_enc"`
 }
 
 // DefaultP2PConfig returns a default configuration for the peer-to-peer layer
@@ -288,6 +302,8 @@ func DefaultP2PConfig() *P2PConfig {
 		SendRate:                512000, // 500 kB/s
 		RecvRate:                512000, // 500 kB/s
 		PexReactor:              true,
+		SeedMode:                false,
+		AuthEnc:                 true,
 	}
 }
 

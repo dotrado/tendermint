@@ -1,4 +1,4 @@
-FROM golang:1.9.2
+FROM golang:1.9.4
 
 # Add testing deps for curl
 RUN echo 'deb http://httpredir.debian.org/debian testing main non-free contrib' >> /etc/apt/sources.list
@@ -14,8 +14,8 @@ WORKDIR $REPO
 
 # Install the vendored dependencies before copying code
 # docker caching prevents reinstall on code change!
-ADD glide.yaml glide.yaml
-ADD glide.lock glide.lock
+ADD Gopkg.toml Gopkg.toml
+ADD Gopkg.lock Gopkg.lock
 ADD Makefile Makefile
 RUN make get_tools
 RUN make get_vendor_deps
@@ -27,6 +27,7 @@ RUN bash scripts/install_abci_apps.sh
 # Now copy in the code
 # NOTE: this will overwrite whatever is in vendor/
 COPY . $REPO
+
 
 RUN go install ./cmd/tendermint
 

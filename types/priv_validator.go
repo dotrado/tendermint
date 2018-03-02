@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"sync"
 	"time"
 
@@ -33,6 +32,56 @@ func voteToStep(vote *Vote) int8 {
 		return 0
 	}
 }
+
+//--------------------------------------------------------------
+// PrivValidator is being upgraded! See types/priv_validator
+
+// ValidatorID contains the identity of the validator.
+type ValidatorID struct {
+	Address cmn.HexBytes  `json:"address"`
+	PubKey  crypto.PubKey `json:"pub_key"`
+}
+
+// PrivValidator defines the functionality of a local Tendermint validator
+// that signs votes, proposals, and heartbeats, and never double signs.
+type PrivValidator2 interface {
+	Address() (Address, error) // redundant since .PubKey().Address()
+	PubKey() (crypto.PubKey, error)
+
+	SignVote(chainID string, vote *Vote) error
+	SignProposal(chainID string, proposal *Proposal) error
+	SignHeartbeat(chainID string, heartbeat *Heartbeat) error
+}
+
+type TestSigner interface {
+	Address() cmn.HexBytes
+	PubKey() crypto.PubKey
+	Sign([]byte) (crypto.Signature, error)
+}
+
+func GenSigner() TestSigner {
+	return &DefaultTestSigner{
+		crypto.GenPrivKeyEd25519().Wrap(),
+	}
+}
+
+type DefaultTestSigner struct {
+	crypto.PrivKey
+}
+
+func (ds *DefaultTestSigner) Address() cmn.HexBytes {
+	return ds.PubKey().Address()
+}
+
+func (ds *DefaultTestSigner) PubKey() crypto.PubKey {
+	return ds.PrivKey.PubKey()
+}
+
+func (ds *DefaultTestSigner) Sign(msg []byte) (crypto.Signature, error) {
+	return ds.PrivKey.Sign(msg), nil
+}
+
+//--------------------------------------------------------------
 
 // PrivValidator defines the functionality of a local Tendermint validator
 // that signs votes, proposals, and heartbeats, and never double signs.
@@ -130,7 +179,7 @@ func LoadPrivValidatorFS(filePath string) *PrivValidatorFS {
 // or else generates a new one and saves it to the filePath.
 func LoadOrGenPrivValidatorFS(filePath string) *PrivValidatorFS {
 	var privVal *PrivValidatorFS
-	if _, err := os.Stat(filePath); err == nil {
+	if cmn.FileExists(filePath) {
 		privVal = LoadPrivValidatorFS(filePath)
 	} else {
 		privVal = GenPrivValidatorFS(filePath)
@@ -379,7 +428,7 @@ func checkVotesOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (time.T
 		panic(fmt.Sprintf("signBytes cannot be unmarshalled into vote: %v", err))
 	}
 
-	lastTime, err := time.Parse(timeFormat, lastVote.Vote.Timestamp)
+	lastTime, err := time.Parse(TimeFormat, lastVote.Vote.Timestamp)
 	if err != nil {
 		panic(err)
 	}
@@ -405,7 +454,7 @@ func checkProposalsOnlyDifferByTimestamp(lastSignBytes, newSignBytes []byte) (ti
 		panic(fmt.Sprintf("signBytes cannot be unmarshalled into proposal: %v", err))
 	}
 
-	lastTime, err := time.Parse(timeFormat, lastProposal.Proposal.Timestamp)
+	lastTime, err := time.Parse(TimeFormat, lastProposal.Proposal.Timestamp)
 	if err != nil {
 		panic(err)
 	}

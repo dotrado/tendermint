@@ -34,6 +34,7 @@ import (
 	"github.com/tendermint/tendermint/state/txindex/kv"
 	"github.com/tendermint/tendermint/state/txindex/null"
 	"github.com/tendermint/tendermint/types"
+	priv_val "github.com/tendermint/tendermint/types/priv_validator"
 	"github.com/tendermint/tendermint/version"
 
 	_ "net/http/pprof"
@@ -82,7 +83,8 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		proxy.DefaultClientCreator(config.ProxyApp, config.ABCI, config.DBDir()),
 		DefaultGenesisDocProviderFunc(config),
 		DefaultDBProvider,
-		logger)
+		logger,
+	)
 }
 
 //------------------------------------------------------------------------------
@@ -170,6 +172,24 @@ func NewNode(config *cfg.Config,
 
 	// reload the state (it may have been updated by the handshake)
 	state = sm.LoadState(stateDB)
+
+	// Connect to external signing process, if an address is provided.
+	if config.PrivValidatorAddr != "" {
+		var (
+			privKey = crypto.GenPrivKeyEd25519()
+			pvsc    = priv_val.NewSocketClient(
+				logger.With("module", "priv_val"),
+				config.PrivValidatorAddr,
+				&privKey,
+			)
+		)
+
+		if err := pvsc.Start(); err != nil {
+			return nil, fmt.Errorf("Error starting private validator client: %v", err)
+		}
+
+		privValidator = pvsc
+	}
 
 	// Decide whether to fast-sync or not
 	// We don't fast-sync when the only validator is us.
@@ -259,7 +279,7 @@ func NewNode(config *cfg.Config,
 			seeds = strings.Split(config.P2P.Seeds, ",")
 		}
 		pexReactor := pex.NewPEXReactor(addrBook,
-			&pex.PEXReactorConfig{Seeds: seeds})
+			&pex.PEXReactorConfig{Seeds: seeds, SeedMode: config.P2P.SeedMode})
 		pexReactor.SetLogger(p2pLogger)
 		sw.AddReactor("PEX", pexReactor)
 	}
@@ -279,8 +299,8 @@ func NewNode(config *cfg.Config,
 			}
 			return nil
 		})
-		sw.SetPubKeyFilter(func(pubkey crypto.PubKey) error {
-			resQuery, err := proxyApp.Query().QuerySync(abci.RequestQuery{Path: cmn.Fmt("/p2p/filter/pubkey/%X", pubkey.Bytes())})
+		sw.SetIDFilter(func(id p2p.ID) error {
+			resQuery, err := proxyApp.Query().QuerySync(abci.RequestQuery{Path: cmn.Fmt("/p2p/filter/pubkey/%s", id)})
 			if err != nil {
 				return err
 			}

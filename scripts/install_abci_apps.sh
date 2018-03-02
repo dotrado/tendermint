@@ -1,15 +1,14 @@
 #! /bin/bash
 
-# XXX this ought to be triggered by jenkins
-
 go get -d github.com/tendermint/abci
 
 # get the abci commit used by tendermint
-COMMIT=`bash scripts/glide/parse.sh abci`
-
+COMMIT=$(bash scripts/dep_utils/parse.sh abci)
 echo "Checking out vendored commit for abci: $COMMIT"
 
-cd $GOPATH/src/github.com/tendermint/abci
-git checkout $COMMIT
-glide install
-go install ./cmd/...
+go get -d github.com/tendermint/abci
+cd "$GOPATH/src/github.com/tendermint/abci" || exit
+git checkout "$COMMIT"
+make get_tools
+make get_vendor_deps
+make install

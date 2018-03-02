@@ -1,41 +1,39 @@
 GOTOOLS = \
-	github.com/mitchellh/gox \
-	github.com/Masterminds/glide \
-	github.com/tcnksm/ghr
-GOTOOLS_CHECK = gox glide ghr
+	github.com/golang/dep/cmd/dep \
 PACKAGES=$(shell go list ./... | grep -v '/vendor/')
 BUILD_TAGS?=tendermint
-TMHOME = $${TMHOME:-$$HOME/.tendermint}
-BUILD_FLAGS = -ldflags "-X github.com/tendermint/tendermint/version.GitCommit=`git rev-parse --short HEAD`"
+BUILD_FLAGS = -ldflags "-X github.com/tendermint/tendermint/version.GitCommit=`git rev-parse --short=8 HEAD`"
 
 all: check build test_integrations install
 
-check: check_tools get_vendor_deps
+check: check_tools ensure_deps
 
 
 ########################################
 ### Build
 
 build:
-	go build $(BUILD_FLAGS) -o build/tendermint ./cmd/tendermint/
+	go build $(BUILD_FLAGS) -tags '$(BUILD_TAGS)' -o build/tendermint ./cmd/tendermint/
 
 build_race:
-	go build -race $(BUILD_FLAGS) -o build/tendermint ./cmd/tendermint
+	go build -race $(BUILD_FLAGS) -tags '$(BUILD_TAGS)' -o build/tendermint ./cmd/tendermint
+
+install:
+	go install $(BUILD_FLAGS) -tags '$(BUILD_TAGS)' ./cmd/tendermint
+
+########################################
+### Distribution
 
 # dist builds binaries for all platforms and packages them for distribution
 dist:
 	@BUILD_TAGS='$(BUILD_TAGS)' sh -c "'$(CURDIR)/scripts/dist.sh'"
-
-install:
-	go install $(BUILD_FLAGS) ./cmd/tendermint
-
 
 ########################################
 ### Tools & dependencies
 
 check_tools:
 	@# https://stackoverflow.com/a/25668869
-	@echo "Found tools: $(foreach tool,$(GOTOOLS_CHECK),\
+	@echo "Found tools: $(foreach tool,$(notdir $(GOTOOLS)),\
         $(if $(shell which $(tool)),$(tool),$(error "No $(tool) in PATH")))"
 
 get_tools:
@@ -46,16 +44,29 @@ update_tools:
 	@echo "--> Updating tools"
 	@go get -u $(GOTOOLS)
 
+#Run this from CI
 get_vendor_deps:
 	@rm -rf vendor/
-	@echo "--> Running glide install"
-	@glide install
+	@echo "--> Running dep"
+	@dep ensure -vendor-only
+
+
+#Run this locally.
+ensure_deps:
+	@rm -rf vendor/
+	@echo "--> Running dep"
+	@dep ensure
 
 draw_deps:
 	@# requires brew install graphviz or apt-get install graphviz
 	go get github.com/RobotsAndPencils/goviz
 	@goviz -i github.com/tendermint/tendermint/cmd/tendermint -d 3 | dot -Tpng -o dependency-graph.png
 
+get_deps_bin_size:
+	@# Copy of build recipe with additional flags to perform binary size analysis
+	$(eval $(shell go build -work -a $(BUILD_FLAGS) -tags '$(BUILD_TAGS)' -o build/tendermint ./cmd/tendermint/ 2>&1))
+	@find $(WORK) -type f -name "*.a" | xargs -I{} du -hxs "{}" | sort -rh | sed -e s:${WORK}/::g > deps_bin_size.log
+	@echo "Results can be found here: $(CURDIR)/deps_bin_size.log"
 
 ########################################
 ### Testing
@@ -141,4 +152,4 @@ fmt:
 # To avoid unintended conflicts with file names, always add to .PHONY
 # unless there is a reason not to.
 # https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
-.PHONY: check build build_race dist install check_tools get_tools update_tools get_vendor_deps draw_depsbuild_test_docker_image test_cover test_apps test_persistence test_p2p test test_race test_libs test_integrations test_release test100 vagrant_test fmt
+.PHONY: check build build_race dist install check_tools get_tools update_tools get_vendor_deps draw_deps get_deps_bin_size build_test_docker_image test_cover test_apps test_persistence test_p2p test test_race test_libs test_integrations test_release test100 vagrant_test fmt

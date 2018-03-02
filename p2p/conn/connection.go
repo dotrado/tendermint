@@ -2,6 +2,7 @@ package conn
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -21,7 +22,6 @@ const (
 	minReadBufferSize  = 1024
 	minWriteBufferSize = 65536
 	updateStats        = 2 * time.Second
-	pingTimeout        = 40 * time.Second
 
 	// some of these defaults are written in the user config
 	// flushThrottle, sendRate, recvRate
@@ -34,6 +34,8 @@ const (
 	defaultSendRate            = int64(512000) // 500KB/s
 	defaultRecvRate            = int64(512000) // 500KB/s
 	defaultSendTimeout         = 10 * time.Second
+	defaultPingInterval        = 60 * time.Second
+	defaultPongTimeout         = 45 * time.Second
 )
 
 type receiveCbFunc func(chID byte, msgBytes []byte)
@@ -81,10 +83,15 @@ type MConnection struct {
 	errored     uint32
 	config      *MConnConfig
 
-	quit         chan struct{}
-	flushTimer   *cmn.ThrottleTimer // flush writes as necessary but throttled.
-	pingTimer    *cmn.RepeatTimer   // send pings periodically
-	chStatsTimer *cmn.RepeatTimer   // update channel stats periodically
+	quit       chan struct{}
+	flushTimer *cmn.ThrottleTimer // flush writes as necessary but throttled.
+	pingTimer  *cmn.RepeatTimer   // send pings periodically
+
+	// close conn if pong is not received in pongTimeout
+	pongTimer     *time.Timer
+	pongTimeoutCh chan bool // true - timeout, false - peer sent pong
+
+	chStatsTimer *cmn.RepeatTimer // update channel stats periodically
 
 	created time.Time // time of creation
 }
@@ -94,9 +101,17 @@ type MConnConfig struct {
 	SendRate int64 `mapstructure:"send_rate"`
 	RecvRate int64 `mapstructure:"recv_rate"`
 
-	MaxMsgPacketPayloadSize int
+	// Maximum payload size
+	MaxMsgPacketPayloadSize int `mapstructure:"max_msg_packet_payload_size"`
 
-	FlushThrottle time.Duration
+	// Interval to flush writes (throttled)
+	FlushThrottle time.Duration `mapstructure:"flush_throttle"`
+
+	// Interval to send pings
+	PingInterval time.Duration `mapstructure:"ping_interval"`
+
+	// Maximum wait time for pongs
+	PongTimeout time.Duration `mapstructure:"pong_timeout"`
 }
 
 func (cfg *MConnConfig) maxMsgPacketTotalSize() int {
@@ -110,6 +125,8 @@ func DefaultMConnConfig() *MConnConfig {
 		RecvRate:                defaultRecvRate,
 		MaxMsgPacketPayloadSize: defaultMaxMsgPacketPayloadSize,
 		FlushThrottle:           defaultFlushThrottle,
+		PingInterval:            defaultPingInterval,
+		PongTimeout:             defaultPongTimeout,
 	}
 }
 
@@ -125,6 +142,10 @@ func NewMConnection(conn net.Conn, chDescs []*ChannelDescriptor, onReceive recei
 
 // NewMConnectionWithConfig wraps net.Conn and creates multiplex connection with a config
 func NewMConnectionWithConfig(conn net.Conn, chDescs []*ChannelDescriptor, onReceive receiveCbFunc, onError errorCbFunc, config *MConnConfig) *MConnection {
+	if config.PongTimeout >= config.PingInterval {
+		panic("pongTimeout must be less than pingInterval (otherwise, next ping will reset pong timer)")
+	}
+
 	mconn := &MConnection{
 		conn:        conn,
 		bufReader:   bufio.NewReaderSize(conn, minReadBufferSize),
@@ -132,7 +153,7 @@ func NewMConnectionWithConfig(conn net.Conn, chDescs []*ChannelDescriptor, onRec
 		sendMonitor: flow.New(0, 0),
 		recvMonitor: flow.New(0, 0),
 		send:        make(chan struct{}, 1),
-		pong:        make(chan struct{}),
+		pong:        make(chan struct{}, 1),
 		onReceive:   onReceive,
 		onError:     onError,
 		config:      config,
@@ -169,7 +190,8 @@ func (c *MConnection) OnStart() error {
 	}
 	c.quit = make(chan struct{})
 	c.flushTimer = cmn.NewThrottleTimer("flush", c.config.FlushThrottle)
-	c.pingTimer = cmn.NewRepeatTimer("ping", pingTimeout)
+	c.pingTimer = cmn.NewRepeatTimer("ping", c.config.PingInterval)
+	c.pongTimeoutCh = make(chan bool, 1)
 	c.chStatsTimer = cmn.NewRepeatTimer("chStats", updateStats)
 	go c.sendRoutine()
 	go c.recvRoutine()
@@ -315,7 +337,21 @@ FOR_LOOP:
 			c.Logger.Debug("Send Ping")
 			wire.WriteByte(packetTypePing, c.bufWriter, &n, &err)
 			c.sendMonitor.Update(int(n))
+			c.Logger.Debug("Starting pong timer", "dur", c.config.PongTimeout)
+			c.pongTimer = time.AfterFunc(c.config.PongTimeout, func() {
+				select {
+				case c.pongTimeoutCh <- true:
+				default:
+				}
+			})
 			c.flush()
+		case timeout := <-c.pongTimeoutCh:
+			if timeout {
+				c.Logger.Debug("Pong timeout")
+				err = errors.New("pong timeout")
+			} else {
+				c.stopPongTimer()
+			}
 		case <-c.pong:
 			c.Logger.Debug("Send Pong")
 			wire.WriteByte(packetTypePong, c.bufWriter, &n, &err)
@@ -346,6 +382,7 @@ FOR_LOOP:
 	}
 
 	// Cleanup
+	c.stopPongTimer()
 }
 
 // Returns true if messages from channels were exhausted.
@@ -406,6 +443,7 @@ func (c *MConnection) sendMsgPacket() bool {
 // recvRoutine reads msgPackets and reconstructs the message using the channels' "recving" buffer.
 // After a whole message has been assembled, it's pushed to onReceive().
 // Blocks depending on how the connection is throttled.
+// Otherwise, it never blocks.
 func (c *MConnection) recvRoutine() {
 	defer c._recover()
 
@@ -446,15 +484,20 @@ FOR_LOOP:
 		switch pktType {
 		case packetTypePing:
 			// TODO: prevent abuse, as they cause flush()'s.
+			// https://github.com/tendermint/tendermint/issues/1190
 			c.Logger.Debug("Receive Ping")
 			select {
 			case c.pong <- struct{}{}:
-			case <-c.quit:
-				break FOR_LOOP
+			default:
+				// never block
 			}
 		case packetTypePong:
-			// do nothing
 			c.Logger.Debug("Receive Pong")
+			select {
+			case c.pongTimeoutCh <- false:
+			default:
+				// never block
+			}
 		case packetTypeMsg:
 			pkt, n, err := msgPacket{}, int(0), error(nil)
 			wire.ReadBinaryPtr(&pkt, c.bufReader, c.config.maxMsgPacketTotalSize(), &n, &err)
@@ -493,16 +536,22 @@ FOR_LOOP:
 			c.stopForError(err)
 			break FOR_LOOP
 		}
-
-		// TODO: shouldn't this go in the sendRoutine?
-		// Better to send a ping packet when *we* haven't sent anything for a while.
-		c.pingTimer.Reset()
 	}
 
 	// Cleanup
 	close(c.pong)
 	for range c.pong {
 		// Drain
+	}
+}
+
+// not goroutine-safe
+func (c *MConnection) stopPongTimer() {
+	if c.pongTimer != nil {
+		if !c.pongTimer.Stop() {
+			<-c.pongTimer.C
+		}
+		c.pongTimer = nil
 	}
 }
 
@@ -682,7 +731,8 @@ func writeMsgPacketTo(packet msgPacket, w io.Writer, n *int, err *error) {
 	wire.WriteBinary(packet, w, n, err)
 }
 
-// Handles incoming msgPackets. Returns a msg bytes if msg is complete.
+// Handles incoming msgPackets. It returns a message bytes if message is
+// complete. NOTE message bytes may change on next call to recvMsgPacket.
 // Not goroutine-safe
 func (ch *Channel) recvMsgPacket(packet msgPacket) ([]byte, error) {
 	ch.Logger.Debug("Read Msg Packet", "conn", ch.conn, "packet", packet)
@@ -692,6 +742,7 @@ func (ch *Channel) recvMsgPacket(packet msgPacket) ([]byte, error) {
 	ch.recving = append(ch.recving, packet.Bytes...)
 	if packet.EOF == byte(0x01) {
 		msgBytes := ch.recving
+
 		// clear the slice without re-allocating.
 		// http://stackoverflow.com/questions/16971741/how-do-you-clear-a-slice-in-go
 		//   suggests this could be a memory leak, but we might as well keep the memory for the channel until it closes,

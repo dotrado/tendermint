@@ -72,7 +72,7 @@ jobs:
       - run:
           name: Run tests
           command: |
-            for pkg in $(go list github.com/tendermint/tendermint/... | grep -v /vendor/ | circleci tests split); do
+            for pkg in $(go list github.com/tendermint/tendermint/... | grep -v /vendor/ | circleci tests split --split-by=timings); do
               id=$(basename "$pkg")
 
               go test -timeout 5m -race -coverprofile=profiles/$id.out -covermode=atomic "$pkg"

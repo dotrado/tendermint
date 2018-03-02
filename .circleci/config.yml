@@ -10,6 +10,9 @@ jobs:
     <<: *defaults
     steps:
       - checkout
+      - restore_cache:
+          keys: 
+            - pkg-cache
       - run:
           name: Get tools
           environment:
@@ -21,9 +24,12 @@ jobs:
             GOBIN: /go/bin
           command: make get_vendor_deps
       - save_cache:
+          key: pkg-cache
+          paths:
+            - /go/pkg
+      - save_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
           paths:
-            - /go/bin
             - /go/src/github.com/tendermint/tendermint
 
   setup_profile_workspace:
@@ -43,7 +49,9 @@ jobs:
       - attach_workspace:
           at: profiles
       - restore_cache:
-          key: tree-{{ .Environment.CIRCLE_SHA1 }}
+          keys:
+            - pkg-cache
+            - tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Run tests
           command: |
@@ -56,10 +64,6 @@ jobs:
           root: profiles
           paths:
             - "*.out"
-      - save_cache:
-          key: tree-{{ .Environment.CIRCLE_SHA1 }}
-          paths:
-            - /go/src/github.com/tendermint/tendermint
 
   upload_coverage:
     <<: *defaults

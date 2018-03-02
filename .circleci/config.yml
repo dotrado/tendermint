@@ -24,6 +24,10 @@ jobs:
             GOBIN: /go/bin
           command: make get_vendor_deps
       - save_cache:
+          key: bin-cache
+          paths:
+            - /go/bin
+      - save_cache:
           key: pkg-cache
           paths:
             - /go/pkg
@@ -48,6 +52,8 @@ jobs:
     steps:
       - attach_workspace:
           at: profiles
+      - restore_cache:
+          key: bin-cache
       - restore_cache:
           key: pkg-cache
       - restore_cache:

@@ -69,9 +69,14 @@ jobs:
           working_directory: /go/src/github.com/tendermint/abci
           name: Install abci
           command: |
+            export PATH="$GOBIN:$PATH"
             make get_tools
             make get_vendor_deps
             make install
+      - save_cache:
+          key: v1-bin-cache
+          paths:
+            - /go/src/github.com/tendermint/tendermint/.bin
 
   lint:
     <<: *defaults

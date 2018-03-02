@@ -40,7 +40,7 @@ jobs:
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
-            - "bin/gometalinter.v2"
+            - "bin/*"
       - save_cache:
           key: v1-pkg-cache
           paths:

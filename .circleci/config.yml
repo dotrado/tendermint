@@ -6,14 +6,12 @@ defaults: &defaults
     - image: circleci/golang:1.10
   environment:
     GOBIN: /go/src/github.com/tendermint/tendermint/.bin
-  steps:
-    - run: echo "export /go/src/github.com/tendermint/tendermint/.bin:$PATH" >> $BASH_ENV
-
   
 jobs:
   setup_dependencies:
     <<: *defaults
     steps:
+      - run: echo "export /go/src/github.com/tendermint/tendermint/.bin:$PATH" >> $BASH_ENV
       - checkout
       - run: mkdir .bin
       - restore_cache:

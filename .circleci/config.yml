@@ -1,15 +1,12 @@
 version: 2
+
 jobs:
-  build:
+  setup:
+    working_directory: /go/src/github.com/tendermint/tendermint
     docker:
       - image: circleci/golang:1.10
-    parallelism: 9
-    working_directory: /go/src/github.com/tendermint/tendermint
     steps:
       - checkout
-      - run:
-          name: Glob tests
-          command: go list github.com/tendermint/tendermint/... | grep -v /vendor/ | circleci tests split
       - run:
           name: Get tools
           environment:
@@ -20,10 +17,61 @@ jobs:
           environment:
             GOBIN: /go/bin
           command: make get_vendor_deps
+      - save_cache:
+          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - /go/src/github.com/tendermint/tendermint
+
+
+  go_test:
+    working_directory: /go/src/github.com/tendermint/tendermint
+    parallelism: 4
+    docker:
+      - image: circleci/golang:1.10
+    steps:
+      - restore_cache:
+          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Run tests
           command: |
-            bash test/test_cover.sh
+            for pkg in $(go list github.com/tendermint/tendermint/... | grep -v /vendor/ | circleci tests split); do
+              id=$(basename "$pkg")
+
+              go test -timeout 5m -race -coverprofile=profile_$id.out -covermode=atomic "$pkg"
+            done
+      - save_cache:
+          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - /go/src/github.com/tendermint/tendermint
+
+  cover:
+    working_directory: /go/src/github.com/tendermint/tendermint
+    parallelism: 4
+    docker:
+      - image: circleci/golang:1.10
+    steps:
+      - restore_cache:
+          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+      - run:
+          name: Run tests
+          command: |
+            echo "mode: atomic" > coverage.txt
+            for prof in $(ls | grep profile); do
+              tail -n +2 "$prof" >> coverage.txt
+              rm "$prof"
+            done
       - run:
           name: Upload test coverage
           command: bash <(curl -s https://codecov.io/bash) -f coverage.txt
+
+workflows:
+  version: 2
+  test-and-cover:
+    jobs:
+      - setup
+      - go_test:
+          requires:
+            - setup
+      - cover:
+          requires:
+            - test

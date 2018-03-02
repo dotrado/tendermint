@@ -23,8 +23,6 @@ jobs:
       - run: mkdir -p profiles
       - persist_to_workspace:
           root: profiles
-          paths:
-            - /
       - save_cache:
           key: repo-{{ .Environment.CIRCLE_SHA1 }}
           paths:

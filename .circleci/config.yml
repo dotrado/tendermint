@@ -23,6 +23,7 @@ jobs:
       - save_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
           paths:
+            - /go/bin
             - /go/src/github.com/tendermint/tendermint
 
   setup_profile_workspace:

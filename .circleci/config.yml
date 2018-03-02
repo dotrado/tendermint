@@ -4,6 +4,10 @@ defaults: &defaults
   working_directory: /go/src/github.com/tendermint/tendermint
   docker:
     - image: circleci/golang:1.10
+  environment:
+    GOBIN: /go/src/github.com/tendermint/tendermint/.bin
+    PATH: "/go/src/github.com/tendermint/tendermint/.bin:$PATH"
+
   
 jobs:
   setup_dependencies:
@@ -17,13 +21,9 @@ jobs:
             - v1- pkg-cache
       - run:
           name: Get tools
-          environment:
-            GOBIN: /go/src/github.com/tendermint/tendermint/.bin
           command: make get_tools
       - run:
           name: Get dependencies
-          environment:
-            GOBIN: /go/src/github.com/tendermint/tendermint/.bin
           command: make get_vendor_deps
       - save_cache:
           key: v1-bin-cache
@@ -60,8 +60,6 @@ jobs:
       - run: ls /go/src/github.com/tendermint/tendermint/.bin
       - run:
           name: Metalinter
-          environment:
-            PATH: "/go/src/github.com/tendermint/tendermint/.bin:$PATH"
           command: make metalinter
 
   test_cover:

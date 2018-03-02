@@ -71,7 +71,7 @@ jobs:
 
             echo "mode: atomic" > coverage.txt
             for prof in $(ls profiles/); do
-              tail -n +2 "$prof" >> coverage.txt
+              tail -n +2 profiles/"$prof" >> coverage.txt
             done
       - run:
           name: Upload coverage

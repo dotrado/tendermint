@@ -6,7 +6,7 @@ defaults: &defaults
     - image: circleci/golang:1.10
   
 jobs:
-  setup:
+  setup_dependencies:
     <<: *defaults
     steps:
       - checkout
@@ -20,19 +20,22 @@ jobs:
           environment:
             GOBIN: /go/bin
           command: make get_vendor_deps
+      - save_cache:
+          key: tree-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - /go/src/github.com/tendermint/tendermint
+
+  setup_profile_workspace:
+    <<: *defaults
+    steps:
       - run: mkdir -p profiles
       - run: touch profiles/.keep
       - persist_to_workspace:
           root: profiles
           paths:
             - .keep
-      - save_cache:
-          key: tree-{{ .Environment.CIRCLE_SHA1 }}
-          paths:
-            - /go/src/github.com/tendermint/tendermint
 
-
-  test:
+  test_cover:
     <<: *defaults
     parallelism: 4
     steps:
@@ -57,7 +60,7 @@ jobs:
           paths:
             - /go/src/github.com/tendermint/tendermint
 
-  coverage:
+  upload_coverage:
     <<: *defaults
     steps:
       - attach_workspace:
@@ -79,12 +82,13 @@ jobs:
 
 workflows:
   version: 2
-  test-and-cover:
+  test-cover:
     jobs:
       - setup
-      - test:
+      - test_cover:
           requires:
-            - setup
-      - coverage:
+            - setup_dependencies
+            - setup_profile_workspace
+      - upload_coverage:
           requires:
-            - test
+            - test_cover

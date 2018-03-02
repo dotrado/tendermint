@@ -5,17 +5,28 @@ defaults: &defaults
   docker:
     - image: circleci/golang:1.10.0
   environment:
-    GOBIN: /go/src/github.com/tendermint/tendermint/.bin
+    GOBIN: /go/src/github.com/tendermint/tendermint/.workspace/bin
   
 jobs:
+  setup_workspace:
+    <<: *defaults
+    steps:
+      - run: mkdir -p .workspace/bin
+      - run: mkdir -p .workspace/profiles
+      - persist_to_workspace:
+          root: .workspace
+          paths:
+            - bin
+            - profiles
+
   setup_dependencies:
     <<: *defaults
     steps:
+      - attach_workspace:
+          at: .workspace
       - checkout
-      - run: mkdir .bin
       - restore_cache:
           keys:
-            - v1-bin-cache
             - v1-pkg-cache
       - run:
           name: tools
@@ -26,10 +37,10 @@ jobs:
       - run:
           name: binaries
           command: make install
-      - save_cache:
-          key: v1-bin-cache
+      - persist_to_workspace:
+          root: .workspace
           paths:
-            - /go/src/github.com/tendermint/tendermint/.bin
+            - bin
       - save_cache:
           key: v1-pkg-cache
           paths:
@@ -39,21 +50,11 @@ jobs:
           paths:
             - /go/src/github.com/tendermint/tendermint
 
-  setup_profile_workspace:
-    <<: *defaults
-    steps:
-      - run: mkdir -p profiles
-      - run: touch profiles/.keep
-      - persist_to_workspace:
-          root: profiles
-          paths:
-            - .keep
-
   setup_abci:
     <<: *defaults
     steps:
-      - restore_cache:
-          key: v1-bin-cache
+      - attach_workspace:
+          at: .workspace
       - restore_cache:
           key: v1-pkg-cache
       - restore_cache:
@@ -73,16 +74,16 @@ jobs:
             make get_tools
             make get_vendor_deps
             make install
-      - save_cache:
-          key: v1-bin-cache
+      - persist_to_workspace:
+          root: .workspace
           paths:
-            - /go/src/github.com/tendermint/tendermint/.bin
+            - bin
 
   lint:
     <<: *defaults
     steps:
-      - restore_cache:
-          key: v1-bin-cache
+      - attach_workspace:
+          at: .workspace
       - restore_cache:
           key: v1-pkg-cache
       - restore_cache:
@@ -96,7 +97,7 @@ jobs:
     parallelism: 4
     steps:
       - attach_workspace:
-          at: profiles
+          at: .workspace
       - restore_cache:
           key: v1-pkg-cache
       - restore_cache:
@@ -107,18 +108,18 @@ jobs:
             for pkg in $(go list github.com/tendermint/tendermint/... | grep -v /vendor/ | circleci tests split --split-by=timings); do
               id=$(basename "$pkg")
 
-              go test -v -timeout 5m -race -coverprofile=profiles/$id.out -covermode=atomic "$pkg"
+              go test -v -timeout 5m -race -coverprofile=.workspace/profiles/$id.out -covermode=atomic "$pkg"
             done
       - persist_to_workspace:
-          root: profiles
+          root: .workspace
           paths:
-            - "*.out"
+            - profiles
 
   test_app:
     <<: *defaults
     steps:
-      - restore_cache:
-          key: v1-bin-cache
+      - attach_workspace:
+          at: .workspace
       - restore_cache:
           key: v1-pkg-cache
       - restore_cache:
@@ -132,7 +133,7 @@ jobs:
     <<: *defaults
     steps:
       - attach_workspace:
-          at: profiles
+          at: .workspace
       - restore_cache:
           key: v1-tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
@@ -141,8 +142,8 @@ jobs:
             set -ex
 
             echo "mode: atomic" > coverage.txt
-            for prof in $(ls profiles/); do
-              tail -n +2 profiles/"$prof" >> coverage.txt
+            for prof in $(ls .workspace/profiles/); do
+              tail -n +2 .workspace/profiles/"$prof" >> coverage.txt
             done
       - run:
           name: upload
@@ -152,8 +153,10 @@ workflows:
   version: 2
   test-cover:
     jobs:
+      - setup_workspace
       - setup_dependencies
-      - setup_profile_workspace
+          requires:
+            - setup_workspace
       - setup_abci:
           requires:
             - setup_dependencies
@@ -163,7 +166,6 @@ workflows:
       - test_cover:
           requires:
             - setup_dependencies
-            - setup_profile_workspace
       - test_app:
           requires:
             - setup_abci

@@ -21,12 +21,15 @@ jobs:
             GOBIN: /go/bin
           command: make get_vendor_deps
       - run: mkdir -p profiles
+      - run: touch profiles/.keep
       - persist_to_workspace:
           root: profiles
-      - save_cache:
-          key: repo-{{ .Environment.CIRCLE_SHA1 }}
           paths:
-            - /go/src/github.com/tendermint/tendermint
+            - .keep
+      - save_cache:
+          key: tree-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - /go
 
 
   test:
@@ -36,7 +39,7 @@ jobs:
       - attach_workspace:
           at: profiles
       - restore_cache:
-          key: repo-{{ .Environment.CIRCLE_SHA1 }}
+          key: tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Run tests
           command: |
@@ -50,7 +53,7 @@ jobs:
           paths:
             - "*.out"
       - save_cache:
-          key: repo-{{ .Environment.CIRCLE_SHA1 }}
+          key: tree-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - /go/src/github.com/tendermint/tendermint
 
@@ -59,6 +62,8 @@ jobs:
     steps:
       - attach_workspace:
           at: profiles
+      - restore_cache:
+          key: tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
           name: Combine profiles
           command: |

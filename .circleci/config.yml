@@ -18,8 +18,10 @@ jobs:
       - run: mkdir .bin
       - restore_cache:
           keys:
-            - v1- bin-cache
-            - v1- pkg-cache
+            - v1-bin-cache
+            - v1-pkg-cache
+      - run: ls -lah /go/src/github.com/tendermint/tendermint/.bin
+      - run: env
       - run:
           name: Get tools
           command: make get_tools

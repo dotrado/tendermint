@@ -8,8 +8,8 @@ set -ex
 
 # TODO: install everything
 
+export PATH="$GOBIN:$PATH"
 export TMHOME=$HOME/.tendermint_app
-alias tendermint=$GOBIN/tendermint
 
 function kvstore_over_socket(){
     rm -rf $TMHOME

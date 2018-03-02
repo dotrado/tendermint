@@ -94,7 +94,7 @@ jobs:
           key: v1-pkg-cache
       - restore_cache:
           key: v1-tree-{{ .Environment.CIRCLE_SHA1 }}
-      - run: ls -lah $GOBIN
+      - run: apt-get update && apt-get install -y hexdump
       - run:
           name: tests
           command: bash test/app/test.sh

@@ -46,7 +46,6 @@ jobs:
 
   upload_coverage:
     working_directory: /go/src/github.com/tendermint/tendermint
-    parallelism: 4
     docker:
       - image: circleci/golang:1.10
     steps:

@@ -5,7 +5,7 @@ defaults: &defaults
   docker:
     - image: circleci/golang:1.10.0
   environment:
-    GOBIN: /go/src/github.com/tendermint/tendermint/.workspace/bin
+    GOBIN: /tmp/workspace/bin
   
 jobs:
   setup_workspace:

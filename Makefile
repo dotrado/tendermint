@@ -50,7 +50,7 @@ update_tools:
 get_vendor_deps:
 	@rm -rf vendor/
 	@echo "--> Running dep"
-	@dep ensure -vendor-only
+	@$(GOBIN)/dep ensure -vendor-only
 
 
 #Run this locally.

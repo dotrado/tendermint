@@ -61,7 +61,7 @@ jobs:
       - run:
           name: Checkout abci
           command: |
-            go get -v -u -d github.com/tendermint/abci
+            go get -v -u -d github.com/tendermint/abci/...
       - run:
           working_directory: /go/src/github.com/tendermint/abci
           name: Install abci

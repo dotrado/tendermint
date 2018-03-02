@@ -11,6 +11,7 @@ jobs:
   setup_dependencies:
     <<: *defaults
     steps:
+      - run: echo "#!/bin/bash" > $BASH_ENV
       - run: echo "export /go/src/github.com/tendermint/tendermint/.bin:$PATH" >> $BASH_ENV
       - checkout
       - run: mkdir .bin

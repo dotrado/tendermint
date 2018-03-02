@@ -18,17 +18,17 @@ jobs:
       - run:
           name: Get tools
           environment:
-            GOBIN: .bin
+            GOBIN: /go/src/github.com/tendermint/tendermint/.bin
           command: make get_tools
       - run:
           name: Get dependencies
           environment:
-            GOBIN: .bin
+            GOBIN: /go/src/github.com/tendermint/tendermint/.bin
           command: make get_vendor_deps
       - save_cache:
           key: v1-bin-cache
           paths:
-            - .bin
+            - /go/src/github.com/tendermint/tendermint/.bin
       - save_cache:
           key: v1-pkg-cache
           paths:
@@ -37,7 +37,6 @@ jobs:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - /go/src/github.com/tendermint/tendermint
-      - run: ls /go/bin
 
   setup_profile_workspace:
     <<: *defaults
@@ -58,12 +57,11 @@ jobs:
           key: v1-pkg-cache
       - restore_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
-      - run: env
-      - run: ls /go/bin
+      - run: ls /go/src/github.com/tendermint/tendermint/.bin
       - run:
           name: Metalinter
           environment:
-            PATH: ".bin:$PATH"
+            PATH: "/go/src/github.com/tendermint/tendermint/.bin:$PATH"
           command: make metalinter
 
   test_cover:

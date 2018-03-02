@@ -18,10 +18,10 @@ jobs:
             - v1-bin-cache
             - v1-pkg-cache
       - run:
-          name: Get tools
+          name: tools
           command: make get_tools
       - run:
-          name: Get dependencies
+          name: dependencies
           command: make get_vendor_deps
       - save_cache:
           key: v1-bin-cache
@@ -32,7 +32,7 @@ jobs:
           paths:
             - /go/pkg
       - save_cache:
-          key: tree-{{ .Environment.CIRCLE_SHA1 }}
+          key: v1-tree-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - /go/src/github.com/tendermint/tendermint
 
@@ -56,7 +56,7 @@ jobs:
       - restore_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
-          name: Metalinter
+          name: metalinter
           command: make metalinter
 
   test_cover:
@@ -70,12 +70,12 @@ jobs:
       - restore_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
-          name: Run tests
+          name: tests
           command: |
             for pkg in $(go list github.com/tendermint/tendermint/... | grep -v /vendor/ | circleci tests split --split-by=timings); do
               id=$(basename "$pkg")
 
-              go test -timeout 5m -race -coverprofile=profiles/$id.out -covermode=atomic "$pkg"
+              go test -v -timeout 5m -race -coverprofile=profiles/$id.out -covermode=atomic "$pkg"
             done
       - persist_to_workspace:
           root: profiles
@@ -90,7 +90,7 @@ jobs:
       - restore_cache:
           key: tree-{{ .Environment.CIRCLE_SHA1 }}
       - run:
-          name: Combine profiles
+          name: gather
           command: |
             set -ex
 
@@ -99,7 +99,7 @@ jobs:
               tail -n +2 profiles/"$prof" >> coverage.txt
             done
       - run:
-          name: Upload coverage
+          name: upload
           command: bash <(curl -s https://codecov.io/bash) -f coverage.txt
 
 workflows:
